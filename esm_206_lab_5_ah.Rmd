@@ -76,3 +76,124 @@ ggplot(data = lobster_tidy,
 
 ```
 
+Use the lubridate package to parse dates and times
+
+Add a new column with mutate(), that contains my date as an actual date 
+
+```{r}
+# Change from a character to a date class 
+# Create new column with dates in ISO format (most accepted format for dates)
+
+lobster_date <- lobster_tidy %>% 
+  mutate(
+    date_new = lubridate::mdy(date))
+
+```
+
+Now we will parse 'date' column to get different pieces (month, year) separated 
+
+```{r}
+# p.s- lubridate only works on a column that is classed as 'date' 
+
+lobster_parse_date <- lobster_date %>% 
+  mutate(
+    obs_month = lubridate::month(date_new, label = TRUE), 
+    obs_year = lubridate::year(date_new)) # separate month from the date column, label allows you to have it be month abbrev. (Aug) rather than number 
+
+```
+
+Let's ask some questions about counts of the lobsters. Let's count by different groupings
+
+Let's count the number of lobsters by year and month: 
+
+```{r}
+# The count function is AMAZING, it's essentially an easy replacement to 'group_by' 
+
+lobster_ym <- lobster_parse_date %>% 
+  count(obs_year, obs_month)
+
+lobster_ysite <- lobster_parse_date %>% 
+  count(obs_year, site)
+
+lobster_site <- lobster_parse_date %>% 
+  count(site)
+```
+
+```{r}
+# BUT what if instead for each site, I want to calculate statistics for each site and have it in the same table 
+# revert to using group_by and summarize and n()
+
+lobster_summary <- lobster_parse_date %>% 
+  group_by(site) %>% 
+  summarize(
+    mean_size = mean(size_mm, na.rm = TRUE), # calculate mean 
+    sd_size = sd(size_mm, na.rm = TRUE), # calculate standard deviation 
+    sample_n = n() # find sample size 
+    )
+```
+
+Confidence intervals and t-tests 
+
+Use the t.test() function to find confidence intervals and perform t-tests
+
+```{r}
+# Let's find the confidence interval for lobster sizes at Isla Vista Beach 
+# I will create a vector with those observations 
+
+ivee_lobsters <- lobster_tidy %>% 
+  filter(site == "IVEE") %>% # filter by IVEE 
+  pull(size_mm) # pulls out size column only, creates vector of observations 
+
+# perform a one-sample t-test 
+
+t.test(ivee_lobsters)
+```
+
+Two-sample t-test 
+
+Is there a significant difference in mean lobster lengths between Naples Reef and Mohawk Reef? 
+
+```{r}
+# Two sample ttest 
+# Make vectors of each sample first (naples, mohawk) 
+
+napl_sample <- lobster_tidy %>% 
+  filter(site == "NAPL") %>% 
+  pull(size_mm)
+
+mohk_sample <- lobster_tidy %>% 
+  filter(site == "MOHK") %>% 
+  pull(size_mm)
+
+mohk_napl_ttest <- t.test(napl_sample, mohk_sample)
+mohk_napl_ttest
+```
+
+Make a statement about this statistical hypothesis test: 
+
+Mean lobster size differed significantly between Mohawk and Naples Reefs (t(`r mohk_napl_ttest$parameter`) = 19.849)
+
+Maybe an easier way to do a two-sample ttest
+
+```{r}
+# create data frame with two groups I want to compare 
+
+lobster_2sample <- lobster_tidy %>% 
+  filter(site %in% c("NAPL", "MOHK"))
+
+# Run t-test 
+
+ttest2 <- t.test(size_mm ~ site, data = lobster_2sample)
+ttest2
+```
+
+Make a geom_tile heatmap 
+
+```{r}
+
+ggplot(data = lobster_ysite, 
+       aes(x = obs_year, 
+           y = site)) + 
+  geom_tile(aes(fill = n))
+```
+
